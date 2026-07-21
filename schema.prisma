@@ -1,0 +1,407 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MotorStatus {
+  ACTIVE
+  IN_REPAIR
+  RETIRED
+}
+
+enum RepairStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_PARTS
+  TESTING
+  COMPLETED
+  DELIVERED
+  CANCELLED
+}
+
+enum RepairPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_PAYMENT
+  OTHER
+}
+
+enum MotorPhase {
+  SINGLE_PHASE
+  THREE_PHASE
+  OTHER
+}
+
+enum DocumentType {
+  INVOICE
+  REPORT
+  PHOTO
+  CONTRACT
+  OTHER
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  LOCKOUT
+}
+
+model User {
+  id              String         @id @default(uuid()) @db.Uuid
+  email           String         @unique @db.VarChar(255)
+  name            String         @db.VarChar(160)
+  passwordHash    String         @map("password_hash")
+  status          UserStatus     @default(ACTIVE)
+  lockedUntil     DateTime?      @map("locked_until")
+  lastLoginAt     DateTime?      @map("last_login_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  roles           UserRole[]
+  sessions        Session[]
+  loginAttempts   LoginAttempt[]
+  auditLogs       AuditLog[]     @relation("AuditActor")
+  reports         Report[]       @relation("ReportAuthor")
+  repairPhotos    RepairPhoto[]  @relation("RepairPhotoUploader")
+  documents       Document[]     @relation("DocumentUploader")
+  notifications   Notification[]
+  assignedRepairs Repair[]       @relation("RepairAssignee")
+
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique @db.VarChar(80)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique @db.VarChar(120)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model Customer {
+  id        String         @id @default(uuid()) @db.Uuid
+  name      String         @db.VarChar(180)
+  email     String?        @db.VarChar(255)
+  phone     String?        @db.VarChar(40)
+  company   String?        @db.VarChar(180)
+  address   String?
+  status    CustomerStatus @default(ACTIVE)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  motors    Motor[]
+  repairs   Repair[]
+
+  @@index([name])
+  @@index([email])
+  @@map("customers")
+}
+
+model Motor {
+  id           String      @id @default(uuid()) @db.Uuid
+  customerId   String      @map("customer_id") @db.Uuid
+  serialNumber String      @unique @map("serial_number") @db.VarChar(120)
+  manufacturer String?     @db.VarChar(120)
+  model        String?     @db.VarChar(120)
+  powerRating  String?     @map("power_rating") @db.VarChar(80)
+  voltage      String?     @db.VarChar(80)
+  rpm          String?     @db.VarChar(80)
+  phase        MotorPhase  @default(OTHER)
+  motorType    String?     @map("motor_type") @db.VarChar(120)
+  frameSize    String?     @map("frame_size") @db.VarChar(120)
+  mountingType String?     @map("mounting_type") @db.VarChar(120)
+  status       MotorStatus @default(ACTIVE)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  customer     Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  repairs      Repair[]
+  documents    Document[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([phase])
+  @@map("motors")
+}
+
+model Repair {
+  id          String        @id @default(uuid()) @db.Uuid
+  motorId     String        @map("motor_id") @db.Uuid
+  customerId  String        @map("customer_id") @db.Uuid
+  assignedTo  String?       @map("assigned_to") @db.Uuid
+  reference   String        @unique @db.VarChar(80)
+  title       String        @db.VarChar(180)
+  description String?
+  status      RepairStatus  @default(OPEN)
+  priority    RepairPriority @default(NORMAL)
+  phase       MotorPhase    @default(OTHER)
+  power       String?       @db.VarChar(80)
+  voltage     String?       @db.VarChar(80)
+  rpm         String?       @db.VarChar(80)
+  numberOfSlots String?     @map("number_of_slots") @db.VarChar(80)
+  startingWireSize String?  @map("starting_wire_size") @db.VarChar(80)
+  runningWireSize  String?  @map("running_wire_size") @db.VarChar(80)
+  wireSize         String?  @map("wire_size") @db.VarChar(80)
+  startingCoilPitch String? @map("starting_coil_pitch") @db.VarChar(80)
+  runningCoilPitch  String? @map("running_coil_pitch") @db.VarChar(80)
+  coilPitch         String? @map("coil_pitch") @db.VarChar(80)
+  startingTurns     String? @map("starting_turns") @db.VarChar(80)
+  runningTurns      String? @map("running_turns") @db.VarChar(80)
+  numberOfTurns     String? @map("number_of_turns") @db.VarChar(80)
+  inspection         Json?
+  customFields       Json?  @map("custom_fields")
+  additionalNotes    String? @map("additional_notes")
+  repairNotes        String? @map("repair_notes")
+  internalNotes      String? @map("internal_notes")
+  startDate          DateTime? @map("start_date")
+  expectedCompletionDate DateTime? @map("expected_completion_date")
+  deliveryDate       DateTime? @map("delivery_date")
+  deletedAt          DateTime? @map("deleted_at")
+  openedAt    DateTime      @default(now()) @map("opened_at")
+  closedAt    DateTime?     @map("closed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  motor       Motor         @relation(fields: [motorId], references: [id], onDelete: Restrict)
+  customer    Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  assignee    User?         @relation("RepairAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  photos      RepairPhoto[]
+  reports     Report[]
+  documents   Document[]
+  cost        RepairCost?
+
+  @@index([motorId])
+  @@index([customerId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([priority])
+  @@index([startDate])
+  @@index([deliveryDate])
+  @@index([phase])
+  @@index([deletedAt])
+  @@map("repairs")
+}
+
+model RepairCost {
+  id             String   @id @default(uuid()) @db.Uuid
+  repairId       String   @unique @map("repair_id") @db.Uuid
+  copperWireCost Decimal  @default(0) @map("copper_wire_cost") @db.Decimal(12, 2)
+  laborCost      Decimal  @default(0) @map("labor_cost") @db.Decimal(12, 2)
+  bearingCost    Decimal  @default(0) @map("bearing_cost") @db.Decimal(12, 2)
+  capacitorCost  Decimal  @default(0) @map("capacitor_cost") @db.Decimal(12, 2)
+  sparePartsCost Decimal  @default(0) @map("spare_parts_cost") @db.Decimal(12, 2)
+  transportationCost Decimal @default(0) @map("transportation_cost") @db.Decimal(12, 2)
+  otherCost      Decimal  @default(0) @map("other_cost") @db.Decimal(12, 2)
+  totalCost      Decimal  @default(0) @map("total_cost") @db.Decimal(12, 2)
+  customerCharge Decimal  @default(0) @map("customer_charge") @db.Decimal(12, 2)
+  discount       Decimal  @default(0) @db.Decimal(12, 2)
+  finalAmount    Decimal  @default(0) @map("final_amount") @db.Decimal(12, 2)
+  profit         Decimal  @default(0) @db.Decimal(12, 2)
+  paymentStatus  PaymentStatus @default(UNPAID) @map("payment_status")
+  paymentMethod  PaymentMethod? @map("payment_method")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  repair         Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@map("repair_costs")
+}
+
+model RepairPhoto {
+  id          String   @id @default(uuid()) @db.Uuid
+  repairId    String   @map("repair_id") @db.Uuid
+  uploadedBy  String?  @map("uploaded_by") @db.Uuid
+  url         String
+  caption     String?  @db.VarChar(255)
+  contentType String   @map("content_type") @db.VarChar(120)
+  sizeBytes   Int      @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+  repair      Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  uploader    User?    @relation("RepairPhotoUploader", fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([repairId])
+  @@index([uploadedBy])
+  @@map("repair_photos")
+}
+
+model Report {
+  id        String   @id @default(uuid()) @db.Uuid
+  repairId  String   @map("repair_id") @db.Uuid
+  authorId  String?  @map("author_id") @db.Uuid
+  title     String   @db.VarChar(180)
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  repair    Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  author    User?    @relation("ReportAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([repairId])
+  @@index([authorId])
+  @@map("reports")
+}
+
+model Document {
+  id          String       @id @default(uuid()) @db.Uuid
+  motorId     String?      @map("motor_id") @db.Uuid
+  repairId    String?      @map("repair_id") @db.Uuid
+  uploadedBy  String?      @map("uploaded_by") @db.Uuid
+  type        DocumentType @default(OTHER)
+  name        String       @db.VarChar(180)
+  url         String
+  contentType String       @map("content_type") @db.VarChar(120)
+  sizeBytes   Int          @map("size_bytes")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  motor       Motor?       @relation(fields: [motorId], references: [id], onDelete: Cascade)
+  repair      Repair?      @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  uploader    User?        @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([motorId])
+  @@index([repairId])
+  @@index([uploadedBy])
+  @@index([type])
+  @@map("documents")
+}
+
+model Notification {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @map("user_id") @db.Uuid
+  title     String             @db.VarChar(180)
+  message   String
+  status    NotificationStatus @default(UNREAD)
+  createdAt DateTime           @default(now()) @map("created_at")
+  readAt    DateTime?          @map("read_at")
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String?     @map("actor_id") @db.Uuid
+  action     AuditAction
+  entityType String      @map("entity_type") @db.VarChar(120)
+  entityId   String?     @map("entity_id") @db.VarChar(120)
+  ipAddress  String?     @map("ip_address") @db.VarChar(64)
+  userAgent  String?     @map("user_agent")
+  metadata   Json?
+  createdAt  DateTime    @default(now()) @map("created_at")
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model LoginAttempt {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  email        String   @db.VarChar(255)
+  successful   Boolean  @default(false)
+  ipAddress    String?  @map("ip_address") @db.VarChar(64)
+  userAgent    String?  @map("user_agent")
+  failureReason String? @map("failure_reason") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+  @@map("login_attempts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
