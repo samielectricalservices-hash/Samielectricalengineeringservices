@@ -18,6 +18,14 @@ export async function createUserSession(userId: string, remember: boolean) {
     Date.now() + (remember ? REMEMBER_SESSION_DAYS : DEFAULT_SESSION_DAYS) * 24 * 60 * 60 * 1000
   );
 
+  await prisma.session.deleteMany({
+    where: {
+      expires: {
+        lt: new Date()
+      }
+    }
+  });
+
   await prisma.session.create({
     data: {
       userId,
@@ -59,14 +67,24 @@ export async function getCurrentSession() {
 
   const session = await prisma.session.findUnique({
     where: { sessionToken: hashToken(token) },
-    include: { user: true }
+    select: {
+      id: true,
+      expires: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          status: true
+        }
+      }
+    }
   });
 
   if (!session || session.expires <= new Date() || session.user.status !== "ACTIVE") {
     if (session) {
       await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
     }
-    cookieStore.delete(SESSION_COOKIE_NAME);
     return null;
   }
 

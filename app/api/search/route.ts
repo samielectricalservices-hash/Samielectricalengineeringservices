@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/session";
 import { searchRepairSchema } from "@/features/repairs/schemas/repair-schema";

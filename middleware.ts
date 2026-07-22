@@ -1,30 +1,36 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { securityHeaders } from "@/lib/security";
+import { securityHeaders } from "@/lib/http-security-headers";
 
 const SESSION_COOKIE_NAME = "msms.session";
 
 export default async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   const response = NextResponse.next();
-  const isAuthenticated = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const hasSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
-  Object.entries(securityHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
+  applySecurityHeaders(response);
 
-  if (!isAuthenticated && request.nextUrl.pathname !== "/login") {
-    const loginUrl = new URL("/login", request.nextUrl);
-    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+  if (pathname === "/login") {
+    return response;
   }
 
-  if (isAuthenticated && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
+  if (!hasSessionCookie) {
+    const loginUrl = new URL("/login", request.nextUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    applySecurityHeaders(redirectResponse);
+    return redirectResponse;
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|uploads).*)"]
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|robots.txt|uploads).*)"]
 };
+
+function applySecurityHeaders(response: NextResponse) {
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+}
