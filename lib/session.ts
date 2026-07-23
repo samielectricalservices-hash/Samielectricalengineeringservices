@@ -12,6 +12,11 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+async function clearSessionCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
 export async function createUserSession(userId: string, remember: boolean) {
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(
@@ -54,7 +59,7 @@ export async function destroyCurrentSession() {
     });
   }
 
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  await clearSessionCookie();
 }
 
 export async function getCurrentSession() {
@@ -85,6 +90,7 @@ export async function getCurrentSession() {
     if (session) {
       await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
     }
+    await clearSessionCookie();
     return null;
   }
 

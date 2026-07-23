@@ -3,6 +3,14 @@ import argon2 from "argon2";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const OWNER_EMAIL = "Samielectricalengineeringservices@gmail.com";
+const OWNER_PASSWORD = "msmssmsmsami";
+const PLACEHOLDER_EMAILS = [
+  "owner@example.com",
+  "admin@example.com",
+  "test@example.com",
+  "demo@example.com"
+];
 
 const ownerPermissions = [
   "users.manage",
@@ -16,6 +24,34 @@ const ownerPermissions = [
 ];
 
 async function main() {
+  async function deleteUsersByEmails(emails: string[]) {
+    const users = await prisma.user.findMany({
+      where: {
+        OR: emails.map((email) => ({
+          email: {
+            equals: email,
+            mode: "insensitive"
+          }
+        }))
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (users.length === 0) {
+      return;
+    }
+
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: users.map((user) => user.id)
+        }
+      }
+    });
+  }
+
   const permissions = await Promise.all(
     ownerPermissions.map((key) =>
       prisma.permission.upsert({
@@ -53,24 +89,61 @@ async function main() {
     )
   );
 
-  const passwordHash = await argon2.hash("msmssmsmsami", {
+  await deleteUsersByEmails(PLACEHOLDER_EMAILS);
+
+  const ownerMatches = await prisma.user.findMany({
+    where: {
+      email: {
+        equals: OWNER_EMAIL,
+        mode: "insensitive"
+      }
+    },
+    orderBy: {
+      createdAt: "asc"
+    }
+  });
+
+  const passwordHash = await argon2.hash(OWNER_PASSWORD, {
     type: argon2.argon2id
   });
 
-  const owner = await prisma.user.upsert({
-    where: { email: "Samielectricalengineeringservices@gmail.com" },
-    update: {
-      name: "Owner",
-      status: "ACTIVE",
-      passwordHash
-    },
-    create: {
-      email: "Samielectricalengineeringservices@gmail.com",
-      name: "Owner",
-      passwordHash,
-      status: "ACTIVE"
-    }
-  });
+  const owner =
+    ownerMatches.length > 0
+      ? await (async () => {
+          const canonicalOwner =
+            ownerMatches.find((user) => user.email === OWNER_EMAIL) ?? ownerMatches[0];
+
+          if (ownerMatches.length > 1) {
+            await prisma.user.deleteMany({
+              where: {
+                id: {
+                  in: ownerMatches
+                    .filter((user) => user.id !== canonicalOwner.id)
+                    .map((user) => user.id)
+                }
+              }
+            });
+          }
+
+          return prisma.user.update({
+            where: { id: canonicalOwner.id },
+            data: {
+              email: OWNER_EMAIL,
+              name: "Owner",
+              passwordHash,
+              status: "ACTIVE",
+              lockedUntil: null
+            }
+          });
+        })()
+      : prisma.user.create({
+          data: {
+            email: OWNER_EMAIL,
+            name: "Owner",
+            passwordHash,
+            status: "ACTIVE"
+          }
+        });
 
   await prisma.userRole.upsert({
     where: {

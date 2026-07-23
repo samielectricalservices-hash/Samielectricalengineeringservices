@@ -2,8 +2,13 @@ import { prisma } from "@/lib/prisma";
 
 export class UserService {
   static async findByEmail(email: string) {
-    return prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    return prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive"
+        }
+      },
       include: {
         roles: {
           include: {

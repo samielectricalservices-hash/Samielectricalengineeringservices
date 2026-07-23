@@ -6,10 +6,10 @@ Enterprise-grade foundation for the Motor Service Management System.
 
 - Next.js 15 App Router, React 19, TypeScript, Tailwind CSS, shadcn-style UI primitives
 - Prisma PostgreSQL schema and initial migration
-- Auth.js credentials login with Argon2 password verification
+- Custom credentials login with Argon2 password verification
 - Server-side failed login tracking and 15-minute lockout after 3 failed attempts
 - Route protection middleware
-- Owner seed account: `admin@example.com` / `ChangeMe123!`
+- Owner seed account: `Samielectricalengineeringservices@gmail.com` / `msmssmsmsami`
 
 ## Setup
 
