@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "Sami Electrical MSMS",
+  title: "Sami Electrical electrical services",
   description: "Motor Service Management System",
   verification: {
     google: "1jWMcXY10rg8YjBmBEfhznQTrNChtFz_zwt6N3MGhww"
