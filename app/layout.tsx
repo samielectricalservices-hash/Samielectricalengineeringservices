@@ -8,8 +8,8 @@ export const metadata: Metadata = {
     google: "1jWMcXY10rg8YjBmBEfhznQTrNChtFz_zwt6N3MGhww"
   },
   icons: {
-    icon: "/logo1.jpg",
-    apple: "/logo1.jpg"
+    icon: "logo1.jpg",
+    apple: "logo1.jpg"
   }
 };
 

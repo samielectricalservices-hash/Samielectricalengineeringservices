@@ -48,7 +48,7 @@ export function LoginForm() {
           id="email"
           type="email"
           autoComplete="email"
-          placeholder="Samielectricalengineeringservices@gmail.com"
+          placeholder="Enter your EMAIL"
           {...form.register("email")}
         />
         {form.formState.errors.email ? (

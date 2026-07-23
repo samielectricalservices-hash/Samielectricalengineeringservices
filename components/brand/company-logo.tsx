@@ -28,7 +28,7 @@ export function CompanyLogo({ size = "md", showText = true }: CompanyLogoProps) 
       </div>
       {showText ? (
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-5">Sami Electrical</p>
+          <p className="truncate text-sm font-semibold leading-5">Sami Electrical </p>
           <p className="truncate text-xs text-muted-foreground">Engineering Services</p>
         </div>
       ) : null}

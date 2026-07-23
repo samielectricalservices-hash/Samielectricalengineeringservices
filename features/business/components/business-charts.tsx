@@ -8,7 +8,7 @@ export function BusinessCharts({ months, status, motorTypes, topCustomers }: { m
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <BarChart title="Monthly Profit" color="hsl(174 46% 31%)" data={months.map((m) => ({ label: m.label, value: m.profit }))} smartProfit />
+      <BarChart title="Monthly Profit" color="hsl(212, 95%, 46%)" data={months.map((m) => ({ label: m.label, value: m.profit }))} smartProfit />
       <BarChart title="Monthly Income" color="hsl(151 39% 34%)" data={months.map((m) => ({ label: m.label, value: m.income }))} />
       <BarChart title="Monthly Expenses" color="hsl(24 56% 46%)" data={months.map((m) => ({ label: m.label, value: m.expenses }))} />
       <BarChart title="Repairs Per Month" color={palette[2]} data={months.map((m) => ({ label: m.label, value: m.repairs }))} />
