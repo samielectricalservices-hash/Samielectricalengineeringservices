@@ -11,7 +11,7 @@ export default async function middleware(request: NextRequest) {
 
   applySecurityHeaders(response);
 
-  if (pathname === "/login") {
+  if (pathname === "/" || pathname === "/login") {
     return response;
   }
 
