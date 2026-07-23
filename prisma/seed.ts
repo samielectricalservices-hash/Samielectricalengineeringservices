@@ -107,43 +107,44 @@ async function main() {
     type: argon2.argon2id
   });
 
-  const owner =
-    ownerMatches.length > 0
-      ? await (async () => {
-          const canonicalOwner =
-            ownerMatches.find((user) => user.email === OWNER_EMAIL) ?? ownerMatches[0];
+  let owner;
 
-          if (ownerMatches.length > 1) {
-            await prisma.user.deleteMany({
-              where: {
-                id: {
-                  in: ownerMatches
-                    .filter((user) => user.id !== canonicalOwner.id)
-                    .map((user) => user.id)
-                }
-              }
-            });
-          }
+  if (ownerMatches.length > 0) {
+    const canonicalOwner =
+      ownerMatches.find((user) => user.email === OWNER_EMAIL) ?? ownerMatches[0];
 
-          return prisma.user.update({
-            where: { id: canonicalOwner.id },
-            data: {
-              email: OWNER_EMAIL,
-              name: "Owner",
-              passwordHash,
-              status: "ACTIVE",
-              lockedUntil: null
-            }
-          });
-        })()
-      : prisma.user.create({
-          data: {
-            email: OWNER_EMAIL,
-            name: "Owner",
-            passwordHash,
-            status: "ACTIVE"
+    if (ownerMatches.length > 1) {
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            in: ownerMatches
+              .filter((user) => user.id !== canonicalOwner.id)
+              .map((user) => user.id)
           }
-        });
+        }
+      });
+    }
+
+    owner = await prisma.user.update({
+      where: { id: canonicalOwner.id },
+      data: {
+        email: OWNER_EMAIL,
+        name: "Owner",
+        passwordHash,
+        status: "ACTIVE",
+        lockedUntil: null
+      }
+    });
+  } else {
+    owner = await prisma.user.create({
+      data: {
+        email: OWNER_EMAIL,
+        name: "Owner",
+        passwordHash,
+        status: "ACTIVE"
+      }
+    });
+  }
 
   await prisma.userRole.upsert({
     where: {
